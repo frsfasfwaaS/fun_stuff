@@ -1,208 +1,86 @@
-// Function to get geolocation and postal code based on IP address
-function getGeolocationAndPostalCode() {
-    // Use an IP-based geolocation API to get location data
-    fetch('https://ipinfo.io/json?token=YOUR_API_TOKEN_HERE')
-        .then(response => response.json())
-        .then(data => {
-            const { ip, city, region, country, postal, loc } = data;
-            const [latitude, longitude] = loc.split(',');
+import oshi.SystemInfo;
+import oshi.hardware.CentralProcessor;
+import oshi.hardware.GlobalMemory;
+import oshi.hardware.HardwareAbstractionLayer;
+import oshi.hardware.PowerSource;
+import oshi.software.os.OperatingSystem;
+import oshi.software.os.OperatingSystemVersion;
+import oshi.util.FormatUtil;
 
-            console.log(`IP Address: ${ip}`);
-            console.log(`City: ${city}`);
-            console.log(`Region: ${region}`);
-            console.log(`Country: ${country}`);
-            console.log(`Postal Code: ${postal}`);
-            console.log(`Latitude: ${latitude}`);
-            console.log(`Longitude: ${longitude}`);
-        })
-        .catch(error => {
-            console.error('Error fetching geolocation data:', error);
-        });
-}
+import javax.net.ssl.HttpsURLConnection;
+import java.io.OutputStream;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
+import java.util.List;
 
-// Get Device Memory
-function getDeviceMemory() {
-    if ('deviceMemory' in navigator) {
-        console.log(`Device Memory: ${navigator.deviceMemory} GB`);
-    } else {
-        console.log("Device memory information is not available.");
-    }
-}
+public class SystemInfoToDiscord {
 
-// Get Connection Type
-function getConnectionType() {
-    if ('connection' in navigator) {
-        console.log(`Connection Type: ${navigator.connection.effectiveType}`);
-        console.log(`Connection Speed: ${navigator.connection.downlink} Mbps`);
-        console.log(`Connection Latency: ${navigator.connection.rtt} ms`);
-    } else {
-        console.log("Connection type is not supported.");
-    }
-}
+    private static final String DISCORD_WEBHOOK_URL = "YOUR_DISCORD_WEBHOOK_URL";
 
-// Get Screen Information
-function getScreenInfo() {
-    console.log(`Screen Resolution: ${window.screen.width}x${window.screen.height}`);
-    console.log(`Color Depth: ${window.screen.colorDepth} bits`);
-    console.log(`Pixel Ratio: ${window.devicePixelRatio}`);
-}
+    public static void main(String[] args) {
+        SystemInfo systemInfo = new SystemInfo();
+        HardwareAbstractionLayer hardware = systemInfo.getHardware();
+        OperatingSystem os = systemInfo.getOperatingSystem();
 
-// Check if Cookies are Enabled
-function checkCookies() {
-    if (navigator.cookieEnabled) {
-        console.log("Cookies are enabled.");
-    } else {
-        console.log("Cookies are disabled.");
-    }
-}
+        StringBuilder systemDetails = new StringBuilder();
 
-// Get Timezone Information
-function getTimezone() {
-    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    console.log(`Timezone: ${timezone}`);
-}
+        // OS Information
+        OperatingSystemVersion osVersion = os.getVersion();
+        systemDetails.append("**Operating System**: ").append(os).append(" ").append(osVersion).append("\n");
 
-// Check Local Storage Support
-function checkLocalStorage() {
-    try {
-        localStorage.setItem('test', 'test');
-        localStorage.removeItem('test');
-        console.log("Local Storage is supported.");
-    } catch (e) {
-        console.log("Local Storage is not supported.");
-    }
-}
+        // CPU Information
+        CentralProcessor processor = hardware.getProcessor();
+        systemDetails.append("**CPU Model**: ").append(processor.getProcessorIdentifier().getName()).append("\n");
+        systemDetails.append("**CPU Cores**: ").append(processor.getLogicalProcessorCount()).append("\n");
 
-// Collect Browser and OS Info
-function getBrowserInfo() {
-    const userAgent = navigator.userAgent;
-    let browserName = "Unknown";
-    let osName = "Unknown";
-    
-    if (userAgent.indexOf("Chrome") > -1) {
-        browserName = "Chrome";
-    } else if (userAgent.indexOf("Firefox") > -1) {
-        browserName = "Firefox";
-    } else if (userAgent.indexOf("Safari") > -1) {
-        browserName = "Safari";
-    } else if (userAgent.indexOf("Edge") > -1) {
-        browserName = "Edge";
-    }
+        // Memory Information
+        GlobalMemory memory = hardware.getMemory();
+        systemDetails.append("**Total Memory**: ").append(FormatUtil.formatBytes(memory.getTotal())).append("\n");
+        systemDetails.append("**Available Memory**: ").append(FormatUtil.formatBytes(memory.getAvailable())).append("\n");
 
-    if (userAgent.indexOf("Windows NT") > -1) {
-        osName = "Windows";
-    } else if (userAgent.indexOf("Mac OS X") > -1) {
-        osName = "Mac OS";
-    } else if (userAgent.indexOf("Linux") > -1) {
-        osName = "Linux";
-    } else if (userAgent.indexOf("Android") > -1) {
-        osName = "Android";
-    } else if (userAgent.indexOf("iPhone") > -1) {
-        osName = "iOS";
-    }
-
-    console.log(`Browser: ${browserName}`);
-    console.log(`Operating System: ${osName}`);
-}
-
-// Detect JavaScript Engine
-function detectJsEngine() {
-    if (window.hasOwnProperty('chrome')) {
-        console.log('JavaScript Engine: V8');
-    } else if (window.hasOwnProperty('moz')) {
-        console.log('JavaScript Engine: SpiderMonkey');
-    } else {
-        console.log('JavaScript Engine: Unknown');
-    }
-}
-
-// Detect Browser Engine
-function detectBrowserEngine() {
-    if (navigator.userAgent.includes('WebKit')) {
-        console.log('Browser Engine: WebKit');
-    } else if (navigator.userAgent.includes('Gecko')) {
-        console.log('Browser Engine: Gecko');
-    } else if (navigator.userAgent.includes('Blink')) {
-        console.log('Browser Engine: Blink');
-    } else {
-        console.log('Browser Engine: Unknown');
-    }
-}
-
-// Check for Screen Orientation Change
-function detectOrientationChange() {
-    window.addEventListener('orientationchange', function() {
-        if (window.orientation === 0) {
-            console.log("Device is in Portrait mode");
-        } else if (window.orientation === 90 || window.orientation === -90) {
-            console.log("Device is in Landscape mode");
+        // Battery Information
+        List<PowerSource> powerSources = hardware.getPowerSources();
+        if (!powerSources.isEmpty()) {
+            PowerSource battery = powerSources.get(0);
+            systemDetails.append("**Battery Status**: ").append(battery.getName()).append("\n");
+            systemDetails.append("**Battery Capacity**: ").append((int) (battery.getRemainingCapacity() * 100)).append("%\n");
+            systemDetails.append("**Charging**: ").append(battery.isCharging() ? "Yes" : "No").append("\n");
+        } else {
+            systemDetails.append("**Battery Status**: No battery detected.\n");
         }
-    });
-}
 
-// Check Clipboard API Support
-function checkClipboard() {
-    if (navigator.clipboard) {
-        console.log("Clipboard API is supported.");
-    } else {
-        console.log("Clipboard API is not supported.");
+        // System Uptime
+        systemDetails.append("**System Uptime**: ").append(FormatUtil.formatElapsedSecs(hardware.getProcessor().getSystemUptime())).append("\n");
+
+        // Send to Discord
+        sendToDiscord(systemDetails.toString());
+    }
+
+    private static void sendToDiscord(String content) {
+        try {
+            URL url = new URL(DISCORD_WEBHOOK_URL);
+            HttpsURLConnection connection = (HttpsURLConnection) url.openConnection();
+            connection.setRequestMethod("POST");
+            connection.setRequestProperty("Content-Type", "application/json");
+            connection.setDoOutput(true);
+
+            // JSON Payload
+            String jsonPayload = "{\"content\":\"" + content.replace("\"", "\\\"") + "\"}";
+
+            try (OutputStream os = connection.getOutputStream()) {
+                byte[] input = jsonPayload.getBytes(StandardCharsets.UTF_8);
+                os.write(input, 0, input.length);
+            }
+
+            int responseCode = connection.getResponseCode();
+            if (responseCode == HttpsURLConnection.HTTP_OK) {
+                System.out.println("Successfully sent system information to Discord.");
+            } else {
+                System.err.println("Failed to send system information. Response Code: " + responseCode);
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 }
-
-// Detect Service Workers
-function checkServiceWorker() {
-    if ('serviceWorker' in navigator) {
-        console.log("Service Worker is supported.");
-    } else {
-        console.log("Service Worker is not supported.");
-    }
-}
-
-// Check WebSocket Support
-function checkWebSocket() {
-    if ('WebSocket' in window) {
-        console.log("WebSocket is supported.");
-    } else {
-        console.log("WebSocket is not supported.");
-    }
-}
-
-// Check Fetch API Support
-function checkFetch() {
-    if ('fetch' in window) {
-        console.log("Fetch API is supported.");
-    } else {
-        console.log("Fetch API is not supported.");
-    }
-}
-
-// Check IndexedDB Support
-function checkIndexedDB() {
-    if ('indexedDB' in window) {
-        console.log("IndexedDB is supported.");
-    } else {
-        console.log("IndexedDB is not supported.");
-    }
-}
-
-// Collect and Log All Information
-function collectAllInfo() {
-    getGeolocationAndPostalCode();
-    getDeviceMemory();
-    getConnectionType();
-    getScreenInfo();
-    checkCookies();
-    getTimezone();
-    checkLocalStorage();
-    getBrowserInfo();
-    detectJsEngine();
-    detectBrowserEngine();
-    detectOrientationChange();
-    checkClipboard();
-    checkServiceWorker();
-    checkWebSocket();
-    checkFetch();
-    checkIndexedDB();
-}
-
-collectAllInfo();
