@@ -1,38 +1,23 @@
-// Check if the browser supports the Battery API
-let batteryLevel = navigator.getBattery ? navigator.getBattery() : null;
-
-if (batteryLevel) {
-    batteryLevel.then(function(battery) {
-        console.log(`Battery Level: ${battery.level * 100}%`);
-        console.log(`Charging: ${battery.charging ? 'Yes' : 'No'}`);
-        console.log(`Charging Time: ${battery.chargingTime} seconds`);
-        console.log(`Discharging Time: ${battery.dischargingTime} seconds`);
-    });
-} else {
-    console.log("Battery API not supported in this browser.");
-}
-
-// Get Geolocation (latitude and longitude)
+// Function to get geolocation and postal code based on IP address
 function getGeolocationAndPostalCode() {
-    if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(function(position) {
-            const { latitude, longitude } = position.coords;
-            console.log(`Latitude: ${latitude}, Longitude: ${longitude}`);
+    // Use an IP-based geolocation API to get location data
+    fetch('https://ipinfo.io/json?token=YOUR_API_TOKEN_HERE')
+        .then(response => response.json())
+        .then(data => {
+            const { ip, city, region, country, postal, loc } = data;
+            const [latitude, longitude] = loc.split(',');
 
-            // Fetch postal code using an external IP geolocation API
-            fetch(`https://ipinfo.io/${latitude},${longitude}/json?token=YOUR_API_TOKEN_HERE`)
-                .then(response => response.json())
-                .then(data => {
-                    const postalCode = data.postal || 'Postal code not available';
-                    console.log(`Postal Code: ${postalCode}`);
-                })
-                .catch(error => console.error("Error fetching postal code:", error));
-        }, function(error) {
-            console.error('Error getting geolocation:', error);
+            console.log(`IP Address: ${ip}`);
+            console.log(`City: ${city}`);
+            console.log(`Region: ${region}`);
+            console.log(`Country: ${country}`);
+            console.log(`Postal Code: ${postal}`);
+            console.log(`Latitude: ${latitude}`);
+            console.log(`Longitude: ${longitude}`);
+        })
+        .catch(error => {
+            console.error('Error fetching geolocation data:', error);
         });
-    } else {
-        console.log("Geolocation is not supported by this browser.");
-    }
 }
 
 // Get Device Memory
@@ -131,7 +116,7 @@ function detectJsEngine() {
     }
 }
 
-// Get Browser Engine
+// Detect Browser Engine
 function detectBrowserEngine() {
     if (navigator.userAgent.includes('WebKit')) {
         console.log('Browser Engine: WebKit');
