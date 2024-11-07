@@ -13,11 +13,20 @@ if (batteryLevel) {
 }
 
 // Get Geolocation (latitude and longitude)
-function getGeolocation() {
+function getGeolocationAndPostalCode() {
     if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(function(position) {
             const { latitude, longitude } = position.coords;
             console.log(`Latitude: ${latitude}, Longitude: ${longitude}`);
+
+            // Fetch postal code using an external IP geolocation API
+            fetch(`https://ipinfo.io/${latitude},${longitude}/json?token=YOUR_API_TOKEN_HERE`)
+                .then(response => response.json())
+                .then(data => {
+                    const postalCode = data.postal || 'Postal code not available';
+                    console.log(`Postal Code: ${postalCode}`);
+                })
+                .catch(error => console.error("Error fetching postal code:", error));
         }, function(error) {
             console.error('Error getting geolocation:', error);
         });
@@ -193,7 +202,7 @@ function checkIndexedDB() {
 
 // Collect and Log All Information
 function collectAllInfo() {
-    getGeolocation();
+    getGeolocationAndPostalCode();
     getDeviceMemory();
     getConnectionType();
     getScreenInfo();
